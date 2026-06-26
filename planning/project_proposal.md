@@ -54,16 +54,19 @@ AI-generated explanations: "Blue Bottle Coffee is your best match — it has whe
 What similar apps and websites? How will your project stand out from these other websites?
 
 1. Google Maps "Accessibility" Feature
-Generic "wheelchair accessible" badge with no details (door width, grab bars, etc.)
-No photo verification, unverified community contributions
 
-2. Wheelmap.org
-Crowdsourced wheelchair accessibility map (Europe-focused)
-No photos, only wheelchair users (ignores visual/hearing/sensory needs)
+Generic "wheelchair accessible" badge with no details (door width, grab bars, etc.).
+No photo verification, unverified community contributions.
+
+3. Wheelmap.org
+   
+Crowdsourced wheelchair accessibility map (Europe-focused).
+No photos, only wheelchair users (ignores visual/hearing/sensory needs).
 
 3. Yelp
-Accessibility info buried in text reviews, no structured filtering
-Not disability-focused
+   
+Accessibility info buried in text reviews, no structured filtering.
+Not disability-focused.
 
 ## Open Questions
 
