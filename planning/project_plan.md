@@ -478,6 +478,7 @@ A running log of key technical and product decisions across the build. Newest at
 | 0.85 confidence threshold for "high confidence" | Balances precision vs. recall; low-confidence detections still shown but not pre-checked | Hard cutoff hiding <0.85 (rejected — loses useful borderline signals) |
 | Human-in-the-loop confirmation required | AI can be wrong; contributor + community verification protects trust | Auto-publish AI detections (rejected — undermines trust, our core value) |
 | Claude only ranks DB venues, never invents facts | Prevents hallucinated accessibility claims that could endanger users | Free-form generative answers (rejected — safety risk) |
+| Unit-test the ML service by stubbing the model at import (`unittest`, no new deps) | Tests the prompt→feature mapping, detection shaping, and HTTP layer in ms without loading the 26 MB weights or hitting the network | Load real weights in tests (rejected — slow, non-hermetic); add pytest (deferred — stdlib covers current needs) |
 
 ### Sprint 4 — Polish, Trust & Deployment
 
