@@ -56,7 +56,7 @@ People with disabilities can't trust online accessibility information. Existing 
 
 **As a venue visitor, I want to see AI-verified accessibility features with visual evidence, so that I can trust the information is accurate and objective before I visit.**
 
-This connects to our computer vision feature (PyTorch YOLOv5). When visitors view a venue, they see photos with bounding boxes showing exactly where accessibility features are located (ramps, grab bars, elevators). The AI detection ensures consistent, objective verification rather than relying solely on subjective descriptions. This means visitors get fast, reliable information because contributors can upload photos easily, and the AI automatically identifies features - leading to more comprehensive data and trustworthy accessibility information.
+This connects to our computer vision feature (PyTorch Grounding DINO, open-vocabulary detection). When visitors view a venue, they see photos with bounding boxes showing exactly where accessibility features are located (ramps, grab bars, elevators). The AI detection ensures consistent, objective verification rather than relying solely on subjective descriptions. This means visitors get fast, reliable information because contributors can upload photos easily, and the AI automatically identifies features - leading to more comprehensive data and trustworthy accessibility information.
 
 ## Decisions Log
 

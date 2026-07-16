@@ -38,7 +38,7 @@ Community reviews from actual people with disabilities
 AI-Powered Photo Analysis (Primary ML Feature)
 
 Users simply upload photos of venue entrances, bathrooms, parking areas
-Computer vision model (PyTorch YOLOv5) automatically detects accessibility features in the photo
+Computer vision model (PyTorch Grounding DINO, open-vocabulary detection) automatically detects accessibility features in the photo
 Returns visual results with bounding boxes showing exactly where the ramp, elevator, or wide door is located
 Makes contributing fast and easy — no tedious forms to fill out
 

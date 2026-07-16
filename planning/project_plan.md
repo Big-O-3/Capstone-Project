@@ -167,7 +167,7 @@ Add Venue Wireframe: https://www.figma.com/make/kabYJC7aB8F1G2BqOODA3A/Add-Venue
 |---|---|---|
 | id | UUID | Primary key |
 | photoId | UUID | Foreign key → photos.id (unique) |
-| modelVersion | String | AI model used (e.g., "yolov8s-world") |
+| modelVersion | String | AI model used (e.g., "grounding-dino-tiny") |
 | processingTime | Float | Seconds to analyze |
 | totalDetections | Integer | Number of features detected |
 | highConfidence | Integer | Detections above 85% confidence |
@@ -332,7 +332,7 @@ These are the API contracts between the AccessMap frontend and backend. All requ
 | CRUD | HTTP Verb | Endpoint | Description | Request Shape | Response Shape | Error Cases | User Stories |
 |---|---|---|---|---|---|---|---|
 | Create | POST | `/api/venues/:venueId/photos` | Upload one or more photos to a venue (Step 2) | `multipart/form-data` (`images[]`, `caption?`) | `{ photos: [{ id, url, uploadedBy, uploadedAt, status: "uploaded" }] }` | 401 if unauthenticated, 404 if venue not found, 413 if too large, 415 if bad type | 2, 5 |
-| Create | POST | `/api/photos/:photoId/analyze` | Run the CV model (YOLO-World) to detect accessibility features (Step 3) | — | `{ photoId, detections: [{ featureKey, label, confidence, boundingBox: { x, y, w, h } }], altTextSuggestion }` | 404 if photo not found, 422 if unreadable image, 503 if ML service down | 6, AI |
+| Create | POST | `/api/photos/:photoId/analyze` | Run the CV model (Grounding DINO) to detect accessibility features (Step 3) | — | `{ photoId, detections: [{ featureKey, label, confidence, boundingBox: { x, y, w, h } }], altTextSuggestion }` | 404 if photo not found, 422 if unreadable image, 503 if ML service down | 6, AI |
 | Read | GET | `/api/photos/:photoId` | Get a photo with its confirmed detections + bounding boxes | — | `{ id, url, venueId, uploadedBy, detections: [{ featureKey, label, confidence, boundingBox, confirmed }], altText }` | 404 if photo not found | 2, AI |
 | Update | PATCH | `/api/photos/:photoId/detections` | Confirm/reject AI detections, add manual features, edit alt text (Step 3 → 4) | `{ confirmed: [featureKey], rejected: [featureKey], manual?: [{ featureKey }], altText? }` | `{ photoId, detections: [{ featureKey, confirmed }], altText }` | 403 if not uploader, 404 if photo not found, 422 if invalid featureKey | 6, AI |
 | Delete | DELETE | `/api/photos/:photoId` | Remove a photo (uploader or admin) | — | `{ success: true }` | 403 if not owner/admin, 404 if photo not found | 5 |
@@ -414,18 +414,18 @@ How AccessMap manages state across the React frontend, the API layer, and the ba
 
 | Aspect | Specification |
 |---|---|
-| **Model** | PyTorch YOLO-World (open-vocabulary object detection), using pretrained `yolov8s-world` weights |
+| **Model** | PyTorch Grounding DINO (open-vocabulary object detection), `IDEA-Research/grounding-dino-tiny` via Hugging Face transformers |
 | **Input** | A venue photo (JPEG/PNG), uploaded to Cloudinary; the URL is passed to the ML service |
 | **Output** | List of detections: `{ cocoLabel, accessibilityFeature, confidence (0.0–1.0), boundingBox {x,y,w,h} }` |
-| **Mapping** | YOLO-World is prompted with plain-English phrases (e.g. "wheelchair ramp", "door", "stairs") and its matched prompt is mapped to an accessibility feature (detected ramp/door → `entrance_detected`, chair → `seating_available`, detected stairs → flag as a *barrier*) |
-| **Confidence threshold** | Detections ≥ 0.85 are surfaced as high-confidence and pre-checked; lower-confidence ones are shown but flagged for contributor review. Note: open-vocabulary detection often scores lower than fixed-class models, so a low confidence floor (~0.10) is used to surface borderline features rather than hide them |
-| **Latency target** | < 3 seconds per photo (CPU inference on Render free tier; see Open Questions) |
+| **Mapping** | Grounding DINO is prompted with plain-English phrases (e.g. "wheelchair ramp", "door", "stairs", "handrail") and its matched label is mapped by keyword to an accessibility feature (ramp/door → `entrance_detected`, chair/bench/table → `seating_available`, stairs/steps/handrail → flag as a *barrier* `stairs_present`) |
+| **Confidence threshold** | Detections ≥ 0.5 are surfaced as high-confidence and pre-checked; lower-confidence ones are shown but flagged for contributor review. Tuned box/text thresholds of 0.30 (via `tune.py`) keep real features while cutting noise and duplicate labels |
+| **Latency target** | < 3 seconds per photo after warm-up (CPU inference; first request after startup takes ~5–10s while the model loads) |
 | **Human-in-the-loop** | AI proposes, contributor confirms/rejects each detection (Step 3), and the community verifies afterward — AI is never the sole authority |
 
 **Flow:**
 1. Contributor uploads photo → stored in Cloudinary, `Photo` row created (`mlAnalyzed = false`).
 2. `POST /api/photos/:id/analyze` calls the Python ML service.
-3. Service runs YOLO-World, maps matched prompts to accessibility features, writes an `MLAnalysis` row + `Detection` rows, sets `mlAnalyzed = true`.
+3. Service runs Grounding DINO, maps matched labels to accessibility features, writes an `MLAnalysis` row + `Detection` rows, sets `mlAnalyzed = true`.
 4. Frontend renders bounding boxes over the photo with confidence labels; results are also announced as text for screen-reader users.
 5. Contributor confirms → detections feed `VenueFeatures` and the venue's `accessibilityScore`.
 
@@ -459,7 +459,7 @@ A running log of key technical and product decisions across the build. Newest at
 | Use PostgreSQL as the primary database | Relational data (venues → photos → detections) with strong FK constraints; PostGIS-ready for geospatial queries | MongoDB (rejected — relationships are core to the model) |
 | Cloudinary for image storage | Free tier, automatic thumbnail generation, CDN delivery; keeps binaries out of the DB | Storing images as blobs (rejected — bloats DB, no CDN) |
 | JWT bearer tokens for auth (+ Google OAuth) | Stateless, simple to attach via interceptor; OAuth lowers signup friction | Server sessions (rejected — adds session store infra) |
-| Split ML into a separate Python service | PyTorch/YOLO-World needs Python; keeps the Node/Express API lightweight | Running inference in-process (rejected — language mismatch) |
+| Split ML into a separate Python service | The PyTorch CV model needs Python; keeps the Node/Express API lightweight | Running inference in-process (rejected — language mismatch) |
 
 ### Sprint 2 — Core CRUD & Data Layer
 
@@ -488,5 +488,6 @@ A running log of key technical and product decisions across the build. Newest at
 | Accessibility preferences persisted to `localStorage` + hydrated on login | Flash-free theme/contrast on load; consistent across devices via saved prefs | Server-only (rejected — flash of default theme on every load) |
 | Deploy web + API on Render, ML service separately | Matches the service split; free tier viable for MVP scale | Single monolith deploy (rejected — Python/Node mismatch) |
 | Graceful AI fallback to manual filters on 503 | Search must keep working even if the AI service is down | Hard failure (rejected — breaks core discovery flow) |
+| Switch CV model from YOLO-World to **Grounding DINO** (`grounding-dino-tiny`) | Empirical testing showed YOLO-World has a blind spot for architectural accessibility features — it detected **no** ramps, stairs, or doors at any confidence, even with the larger `yolov8x-world` model; it only reliably saw furniture (chairs, tables), which are close to its COCO training. Grounding DINO reliably surfaces ramps, handrails, stairs, and doors — the core accessibility signal. Same `detect()` output shape, so the backend/frontend contract is unchanged. | Keep YOLO-World (rejected — cannot detect the features that matter most); a VLM like Claude vision (deferred — no bounding boxes, adds API cost/latency; strong future option since accessibility is a semantic judgment); fine-tune a custom model (deferred — needs a labeled dataset) |
 
 *This log is updated continuously as decisions are made and revisited throughout the sprints.*
